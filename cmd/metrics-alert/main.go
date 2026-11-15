@@ -32,8 +32,9 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) error {
+	const usage = "usage: metrics-alert primary|secondary|check-config [flags]"
 	if len(args) == 0 {
-		return errors.New("usage: metrics-alert primary|secondary [flags]")
+		return errors.New(usage)
 	}
 	mode := args[0]
 	flags := flag.NewFlagSet(mode, flag.ContinueOnError)
@@ -42,9 +43,11 @@ func run(ctx context.Context, args []string) error {
 	var interval, timeout time.Duration
 	var failures int
 	switch mode {
-	case "primary":
+	case "primary", "check-config":
 		path := flags.String("config", "config/example.yaml", "rule configuration")
-		flags.StringVar(&listen, "listen", ":8080", "health server address")
+		if mode == "primary" {
+			flags.StringVar(&listen, "listen", ":8080", "health server address")
+		}
 		if err := flags.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -65,10 +68,14 @@ func run(ctx context.Context, args []string) error {
 			return errors.New("secondary requires an HTTP(S) url, 0 < timeout < interval, and positive failures")
 		}
 	default:
-		return errors.New("usage: metrics-alert primary|secondary [flags]")
+		return errors.New(usage)
 	}
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
+	}
+	if mode == "check-config" {
+		fmt.Println("Configuration is valid.")
+		return nil
 	}
 	webhook := os.Getenv("SLACK_WEBHOOK_URL")
 	if !validURL(webhook) {

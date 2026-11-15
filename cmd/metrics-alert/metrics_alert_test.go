@@ -31,6 +31,17 @@ func TestConfig(t *testing.T) {
 	}
 }
 
+func TestCheckConfigWithoutWebhook(t *testing.T) {
+	t.Setenv("SLACK_WEBHOOK_URL", "")
+	args := []string{"check-config", "-config", "../../config/example.yaml"}
+	if err := run(t.Context(), args); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(t.Context(), append(args, "extra")); err == nil || !strings.Contains(err.Error(), "unexpected positional arguments") {
+		t.Fatalf("want positional argument error, got %v", err)
+	}
+}
+
 func TestScrape(t *testing.T) {
 	selectors := []selector{
 		{Metric: "queue_depth", Labels: map[string]string{"queue": "background"}},

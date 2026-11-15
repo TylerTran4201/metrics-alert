@@ -10,7 +10,8 @@ This backlog records ownership and handoffs. Each item lists the role responsibl
 | MA-004 | Slack webhook sender | Done | Tester | None |
 | MA-005 | Integrate primary and secondary watchdog | Done | Tester | MA-002, MA-003, MA-004 |
 | MA-006 | Kubernetes deployment and local MVP acceptance | Done | Tester | MA-005 |
-| MA-007 | Verify production inputs and deployment | Ready | PM | MA-006 |
+| MA-007 | Verify production inputs and deployment | Blocked | PM | MA-006, production inputs |
+| MA-008 | Validate primary configuration offline | Done | Tester | MA-002 |
 
 ### MA-001 · Confirm local inputs and sample rules
 
@@ -54,6 +55,17 @@ This backlog records ownership and handoffs. Each item lists the role responsibl
 - Publish the image to the team's registry. Verify exporter connectivity and HTTPS delivery to a Slack test channel from the intended namespace.
 - Measure CPU, RSS, and alert latency under a representative target count, series volume, and scrape frequency. Use the results to tune requests, limits, and watchdog thresholds.
 - Handoff — local MVP verification is complete. The PM needs real rule examples, the target namespace and registry, and a Slack test webhook supplied through the team's secret-management workflow.
+- Unblock — the PM coordinates with infrastructure and exporter owners for endpoints, access requirements, registry, and namespace. Alert owners supply representative rules and provision the test webhook through the secret-management workflow.
+
+### MA-008 · Validate primary configuration offline
+
+- PM scope — add a CLI command to validate a rules file before rollout. Reuse primary startup validation. MA-002 supplied the parser and validator. Developer starts with the CLI dispatch and documents the command for deployment operators.
+- With the webhook environment variable unset, `metrics-alert check-config -config config/example.yaml` exits zero and reports success. It opens no listener or outbound connection.
+- With an unknown YAML field or a reference to an undefined target, the command exits nonzero and identifies the configuration error. Extra positional arguments also fail.
+- Developer handoff — the CLI shares `loadConfig` with primary startup and returns before webhook validation and runtime startup. The README documents the deployment command. Run `go test ./...`, `go vet ./...`, and exercise the built CLI with valid and invalid files.
+- Tester verdict — passed. `gofmt`, `go test ./...`, `go vet ./...`, and `git diff --check` completed successfully. Built the CLI with `go build -o /tmp/metrics-alert-check ./cmd/metrics-alert`. With `SLACK_WEBHOOK_URL` unset, the example succeeded and both runtime modes still rejected the missing webhook. Code review confirmed that check-config returns before any runtime or HTTP startup.
+- Tester error cases — appended `unexpected_key: true` to a copy of the example, replaced `targets: [redis]` with `targets: [missing]` in a second copy, and passed an extra positional argument with the original example. Each command failed with the expected diagnostic.
+- Next step — the PM can use check-config on candidate rule files when MA-007 inputs arrive. Production connectivity and delivery remain part of MA-007.
 
 ## Handoff template
 

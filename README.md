@@ -36,6 +36,12 @@ Start from [the Compose example](config/example.yaml) and replace its endpoints 
 
 Build and publish the Docker image to your registry, then replace both `metrics-alert:dev` references in [the workload manifest](deploy/workloads.yaml) with that image. Use exporter URLs reachable from the namespace. The local Redis example is standalone. For a Redis Cluster, configure the exporter endpoints and rules for the nodes you want to monitor. Exporter URLs must be reachable directly over HTTP or HTTPS. Endpoint-specific authentication and custom CA configuration remain deployment requirements to confirm for your environment.
 
+Validate the rules file locally before creating the ConfigMap. The command uses the primary's startup validation and requires only the rules file.
+
+```sh
+go run ./cmd/metrics-alert check-config -config path/to/rules.yaml
+```
+
 Create `metrics-alert-slack` in the target namespace with the HTTPS Slack webhook URL under the `webhook-url` key using your secret-management workflow. With the Secret in place, apply the config and workloads.
 
 ```sh
