@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-alert-primary
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: metrics-alert-primary
+  template:
+    metadata:
+      labels:
+        app: metrics-alert-primary
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: primary
+          image: metrics-alert:dev
+          args: ["primary", "-config", "/config/rules.yaml"]
+          ports:
+            - name: health
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 3
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: metrics-alert-slack
+                  key: webhook-url
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: rules
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: rules
+          configMap:
+            name: metrics-alert-rules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-alert-primary
+spec:
+  selector:
+    app: metrics-alert-primary
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-alert-secondary
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: metrics-alert-secondary
+  template:
+    metadata:
+      labels:
+        app: metrics-alert-secondary
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: secondary
+          image: metrics-alert:dev
+          args: ["secondary", "-url", "http://metrics-alert-primary:8080/healthz"]
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: metrics-alert-slack
+                  key: webhook-url
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

@@ -1,0 +1,38 @@
+interval: 3s
+timeout: 2s
+health_max_age: 7s
+targets:
+  - id: node
+    url: http://node-exporter:9100/metrics
+  - id: redis
+    url: http://redis-exporter:9121/metrics
+  - id: rabbitmq
+    url: http://rabbitmq:15692/metrics
+rules:
+  - id: demo-node-memory
+    targets: [node]
+    operation: ratio
+    select:
+      metric: node_memory_MemAvailable_bytes
+    denominator:
+      metric: node_memory_MemTotal_bytes
+    compare: ">"
+    threshold: 0
+    message: "Demo rule for available memory fraction."
+  - id: demo-redis-clients
+    targets: [redis]
+    operation: gauge
+    select:
+      metric: redis_connected_clients
+    compare: ">"
+    threshold: 1
+    for: 3s
+    message: "A demo client is connected to Redis."
+  - id: demo-rabbitmq-connections
+    targets: [rabbitmq]
+    operation: sum
+    select:
+      metric: rabbitmq_connections
+    compare: ">="
+    threshold: 0
+    message: "Demo rule for total RabbitMQ connections."

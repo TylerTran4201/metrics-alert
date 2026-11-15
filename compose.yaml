@@ -1,0 +1,50 @@
+name: metrics-alert
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    ports:
+      - "127.0.0.1:19100:9100"
+
+  redis:
+    image: redis:7.4-alpine
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.77.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on: [redis]
+    ports:
+      - "127.0.0.1:19121:9121"
+
+  rabbitmq:
+    image: rabbitmq:4.2-alpine
+    volumes:
+      - ./dev/rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+    ports:
+      - "127.0.0.1:19292:15692"
+
+  webhook:
+    image: python:3.14.0-alpine
+    command: ["python", "-u", "/webhook.py"]
+    volumes:
+      - ./dev/webhook.py:/webhook.py:ro
+
+  primary:
+    image: metrics-alert:dev
+    build: .
+    pull_policy: build
+    command: ["primary", "-config", "/config.yaml"]
+    environment:
+      SLACK_WEBHOOK_URL: http://webhook:8080/alerts
+    volumes:
+      - ./config/example.yaml:/config.yaml:ro
+    depends_on: [node-exporter, redis-exporter, rabbitmq, webhook]
+    ports:
+      - "127.0.0.1:19080:8080"
+
+  secondary:
+    image: metrics-alert:dev
+    command: ["secondary", "-url", "http://primary:8080/healthz", "-interval", "2s", "-timeout", "1s", "-failures", "4"]
+    environment:
+      SLACK_WEBHOOK_URL: http://webhook:8080/alerts
+    depends_on: [primary, webhook]
